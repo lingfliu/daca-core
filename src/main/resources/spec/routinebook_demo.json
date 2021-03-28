@@ -1,0 +1,175 @@
+{
+  "timeout": 2000,
+
+  "shots": [
+    "data",
+    "event"
+  ],
+
+  "filter_mode": 0,
+  "unfiltered": [
+    "pulse",
+    "register"
+  ],
+  "creds": {
+    "auth": {}
+  },
+
+  "routines":
+  [
+    {
+      "name": "tx_pulse",
+      "autostart": true,
+      "repeat": -1,
+      "flow_groups": [
+        {
+          "flows": [
+            {
+              "code_name": "pulse",
+              "direction": 0,
+              "timeout": 1000,
+              "repeat": -1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rx_pulse",
+      "autostart": true,
+      "repeat": -1,
+      "flow_groups": [
+        {
+          "flows": [
+            {
+              "code_name": "pulse",
+              "direction": 1,
+              "timeout": 1000,
+              "repeat": -1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "register",
+      "repeat": 0,
+      "filter_mode": 1,
+      "priority": 0,
+      "autostart": false,
+      "retain_mode": 1,
+      "creds": {
+        "auth": {}
+      },
+
+      "flow_groups": [
+        {
+          "flows":[
+            {
+              "code_name": "req_register",
+              "direction": 0
+            },
+            {
+              "code_name": "ack_register",
+              "timeout": 2000,
+              "direction": 1
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "control",
+      "filter_mode": 2,
+      "autostart": false,
+      "creds": {
+        "ctrl_name": {}
+      },
+      "flow_groups": [
+        {
+          "flows": [
+            {
+              "code_name": "req_ctrl",
+              "direction": 0
+            },
+            {
+              "code_name": "ack_ctrl",
+              "timeout": 2000,
+              "direction": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "query_state",
+      "filter_mode": 1,
+      "autostart": false,
+      "filtered": [
+        "event"
+      ],
+
+      "creds": {
+        "state_name":{}
+      },
+      "flow_groups": [
+        {
+          "flows":
+          [
+            {
+              "code_name": "req_state",
+              "direction": 1
+            },
+            {
+              "code_name": "ack_state",
+              "timeout": 1000,
+              "direction": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "query_data",
+      "filter_mode": 0,
+      "autostart": false,
+      "flow_groups": [
+        {
+          "flows": [
+            {
+              "code_name": "req_data",
+              "direction": 1,
+              "timeout": 500
+            }
+          ]
+        },
+        {
+          "flows": [
+            {
+              "code_name": "data",
+              "direction": 0,
+              "timeout": 500
+            },
+            {
+              "code_name": "ack_data",
+              "direction": 1,
+              "timeout": 500
+            }
+          ],
+          "repeat": -1
+        },
+        {
+          "priority": 1,
+          "flows": [
+            {
+              "code_name": "end_data",
+              "direction": 1,
+              "timeout": 500
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
