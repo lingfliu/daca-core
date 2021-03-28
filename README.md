@@ -1,7 +1,7 @@
-# DACA 
+# Declarative Application Connectivity Adapter (DACA) 
 
-DACA is a light weighted design of Declarative Application Connectivity Adapter for M2M and IoT applications.
-This framework implements a reactive pattern with RxJava3 supports for application connectivity management with a well decoupled design from
+DACA is a light weighted design for M2M and IoT application connectivity management. 
+This framework is designed with a reactive pattern by RxJava3 supports for application connectivity management with a well decoupled design from
 the BI applications.
 
 ## Quick start
@@ -68,3 +68,5 @@ QosAdapter qosAdapter = new QosAdapter(max){
 });
 ```
 
+## Licensing
+DACA is currently released under the Apache 2.0 license.
