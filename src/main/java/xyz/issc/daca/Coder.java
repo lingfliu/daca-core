@@ -8,6 +8,8 @@ import xyz.issc.daca.utils.ByteCircleBuffer;
 import xyz.issc.daca.utils.ByteParser;
 import xyz.issc.daca.utils.StringUtils;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Coder {
@@ -37,7 +39,7 @@ public class Coder {
     long decodeTimeout;
 
     int payloadLen;
-    int prefixLen;
+    int metaLen;
 
     AtomicInteger status = new AtomicInteger(STATUS_IDLE);
     public int getStatus() {
@@ -53,7 +55,7 @@ public class Coder {
         byteBuff = new ByteCircleBuffer(buffLen);
         this.codeBook = codeBook;
         this.metaCode = codeBook.getMetaCode();
-        this.prefixLen = codeBook.calcPrefixLen();
+        this.metaLen = codeBook.calcMetaLen();
         this.buff = new byte[buffLen];
     }
 
@@ -77,7 +79,7 @@ public class Coder {
      * @return
      */
     public FullMessage oneshotDecode() {
-        if (byteBuff.getAvailability() < prefixLen) {
+        if (byteBuff.getAvailability() < metaLen) {
             setStatus(STATUS_IDLE);
             byteBuff.flush();
             return null;
@@ -101,12 +103,13 @@ public class Coder {
             for (AttrSegment seg : attrSegs) {
                 int attrLen = 0;
                 if (seg.isVariant()) {
-                    attrLen = fetchPrefixAttrLen(seg.getName());
+                    //TODO variant determining
+                    attrLen = fetchMetaAttrLen(seg.getName());
                 }
                 else {
                     attrLen = seg.getLen();
                 }
-                byteBuff.pop(buff, calcSegmentLength(seg.getOffset(), seg.getParseLen(), attrLen));
+                byteBuff.pop(buff, calcSegmentLen(seg.getOffset(), seg.getParseLen(), attrLen));
 
                 Svo attr = parseAttr(buff, seg.getOffset(), seg, attrLen);
                 payload.putAttr(seg.getName(), attr);
@@ -123,7 +126,7 @@ public class Coder {
    }
 
 
-    public FullMessage decode() throws ByteParser.ByteArrayOverflowException, Svo.ValueUnpackException {
+    public FullMessage decode() {
 
         //headless decoding
         if (codeBook.isHeadless()) {
@@ -159,15 +162,15 @@ public class Coder {
             }
 
             //when found header, determine buffer length for prefix decoding
-            if (byteBuff.getAvailability() < prefixLen + header.length) {
-                //insufficient for prefix, wait
+            if (byteBuff.getAvailability() < metaLen + header.length) {
+                //insufficient for meta, wait
                 invalidateDecoding();
                 return null;
             }
 
-            // parsing prefix
+            // parsing meta without pop bytes from buff
             meta = parseMeta();
-            payloadLen = fetchPrefixAttrLen("payload");
+            payloadLen = fetchMetaAttrLen("payload");
 
             // get type
             String type = fetchType(meta);
@@ -183,7 +186,7 @@ public class Coder {
                 /*
                  * finally pop header and prefix here
                  */
-                byteBuff.pop(buff, header.length+prefixLen);
+                byteBuff.pop(buff, header.length+metaLen);
 
                 //set decoding status
                 payload = new Message();
@@ -217,7 +220,6 @@ public class Coder {
                 if (attrSeg.getVarMode() == 1) {
                     //declared at the beginning of attrSeg
                     if (byteBuff.getAvailability() < attrSeg.getVarParseLen()) {
-                        status.set(STATUS_PENDING);
                         return null;
                     }
                     else {
@@ -253,7 +255,6 @@ public class Coder {
                         }
                     }
                     if (!foundTail) {
-                        status.set(STATUS_PENDING);
                         return null;
                     }
                     attrLen = tailEnd / attrSeg.getParseLen();
@@ -261,7 +262,6 @@ public class Coder {
                 }
 
                 if (byteBuff.getAvailability() < availabilityExpected)  {
-                    status.set(STATUS_PENDING);
                     return null;
                 }
                 else {
@@ -273,7 +273,7 @@ public class Coder {
             }
             else {
                 attrLen = attrSeg.getLen();
-                if (byteBuff.getAvailability() < calcSegmentLength(offset, attrSeg.getParseLen(), attrLen)) {
+                if (byteBuff.getAvailability() < calcSegmentLen(offset, attrSeg.getParseLen(), attrLen)) {
                     // waiting
                     status.set(STATUS_PENDING);
                     return null;
@@ -290,25 +290,20 @@ public class Coder {
         return new FullMessage(meta, payload);
     }
 
-    int fetchPrefixAttrLen(String attrName) {
-        if (meta.getAttrLen().containsKey(attrName)) {
-            return meta.getAttrLen().get(attrName);
-        }
-        else {
-            return -1;
-        }
+    int fetchMetaAttrLen(String attrName) {
+        return meta.getAttrLen().getOrDefault(attrName, -1);
     }
 
     public Message parseMeta() {
 
         Message msg = new Message();
         AttrSegment[] segments = metaCode.getAttrSegments();
-        byte[] tmpBuff = new byte[codeBook.getHeader().length+prefixLen];
-        byteBuff.read(tmpBuff, codeBook.getHeader().length+prefixLen);
+        byte[] tmpBuff = new byte[codeBook.getHeader().length+metaLen];
+        byteBuff.read(tmpBuff, codeBook.getHeader().length+metaLen);
 
         int idx = codeBook.getHeader().length;
         for (AttrSegment s : segments) {
-            int segLen = calcSegmentLength(s.getOffset(), s.getParseLen(), s.getLen());
+            int segLen = calcSegmentLen(s.getOffset(), s.getParseLen(), s.getLen());
             System.arraycopy(tmpBuff, idx, buff, 0, segLen);
             idx += segLen;
             Svo attr = parseAttr(buff, s.getOffset(), s, s.getLen());
@@ -319,17 +314,15 @@ public class Coder {
                     e.printStackTrace();
                 }
             }
-            else {
-                msg.putAttr(s.getName(), attr);
-            }
+            msg.putAttr(s.getName(), attr);
         }
 
         msg.setType(fetchType(msg));
-        msg.setName("prefix");
+        msg.setName("meta");
         return msg;
     }
 
-    private int calcSegmentLength(int offset, int parseLen, int len) {
+    private int calcSegmentLen(int offset, int parseLen, int len) {
         return offset + parseLen*len;
     }
 
@@ -386,16 +379,16 @@ public class Coder {
         return ArrayHelper.cmp(buff, tail, offset, tail.length);
     }
 
-    private String fetchType(Message meta) {
+    private String fetchType(Message msg) {
         // get type
         String type = null;
         try {
-            Svo attrType = meta.getData().get("type");
+            Svo attrType = msg.getData().get("type");
             if (attrType.getType() == Svo.Type.INT) {
-                type = Long.toString(meta.getData().get("type").unpackInteger());
+                type = Long.toString(msg.getData().get("type").unpackInteger());
             }
             else if (attrType.getType() == Svo.Type.STRING) {
-                type = meta.getData().get("type").unpackString();
+                type = msg.getData().get("type").unpackString();
             }
         } catch (Svo.ValueUnpackException e) {
             e.printStackTrace();
@@ -407,53 +400,131 @@ public class Coder {
 
 
     /**
-     * TODO encoding
      * @param msg
      * @return
      */
-    public byte[] encode(FullMessage msg) {
+    public byte[] encode(FullMessage msg) throws ByteParser.ByteArrayOverflowException {
         byte[] tmpBuff = new byte[65535];
         int cnt = 0;
         //1. encode header
         if (!codeBook.isHeadless()) {
-            System.arraycopy(codeBook.getHeader(), 0, tmpBuff, 0, codeBook.getHeader().length);
-            cnt += codeBook.getHeader().length;
+            byte[] header = codeBook.getHeader();
+            System.arraycopy(header, 0, tmpBuff, 0, header.length);
+            cnt += header.length;
         }
-        //2. encode prefix
-        Code meta = codeBook.getMetaCode();
-        AttrSegment[] metaSegs = meta.getAttrSegments();
+        //2. encode meta
+        Code metaCode = codeBook.getMetaCode();
+        AttrSegment[] segs = metaCode.getAttrSegments();
         Message metaMsg = msg.getMeta();
-        for (AttrSegment seg : metaSegs)  {
+        for (AttrSegment s : segs)  {
             int len;
-            if (metaMsg.getData().containsKey(seg.getName())) {
-                len = toBytes(tmpBuff, cnt, seg, metaMsg.getData().get(seg.getName()));
+            if (metaMsg.getData().containsKey(s.getName())) {
+                len = toBytes(tmpBuff, cnt, s, metaMsg.getData().get(s.getName()));
             }
             else {
-                len = seg.getLen()*seg.getParseLen();
+                //setting type in meta by naming convention
+                if (s.getName().equals("type")) {
+                    String type = msg.getType();
+                    if (s.getParseType() == ByteParser.ParseType.UINT) {
+                        int typeInt = Integer.parseInt(type);
+                        ByteParser.int2bytes(tmpBuff, cnt+s.getOffset(), s.getParseLen(), false, s.isMsb(), typeInt);
+                        len = s.getOffset()  + s.getParseLen();
+                    }
+                    else if (s.getParseType() == ByteParser.ParseType.STRING){
+                        System.arraycopy(tmpBuff, cnt+s.getOffset(), type.getBytes(), 0, s.getParseLen());
+                        len = s.getOffset()  + s.getParseLen();
+                    }
+                    else {
+                        //spec error
+                        return null;
+                    }
+
+                }
+                else {
+                    len = s.getOffset() + s.getLen() * s.getParseLen();
+                }
             }
             cnt += len;
         }
 
-        // TODO encode payload
         Message payload = msg.getPayload();
         Code code = codeBook.getCodeByName(msg.getName());
-        for (AttrSegment seg : code.getAttrSegments()){
+        segs = code.getAttrSegments();
+        Map<String, Integer> varLenRec = new HashMap<>();
+        Map<String, Integer> varAttrLenPos = new HashMap<>();
+        Map<String, AttrSegment> varAttrLenSegs = new HashMap<>();
+
+        for (AttrSegment s : segs){
             int len;
-            if (payload.getData().containsKey(seg.getName())) {
-                len = toBytes(tmpBuff, cnt, seg, payload.getData().get(seg.getName()));
+
+
+            if (payload.getData().containsKey(s.getName())) {
+                if (s.isVariant()) {
+                    int mode = s.getVarMode();
+                    if (mode == 1) {
+                        len = toBytes(tmpBuff, cnt, s, payload.getData().get(s.getName()));
+                        int varAttrParseLen = s.getVarParseLen();
+                        byte[] varAttrLenBytes = new byte[varAttrParseLen];
+                        ByteParser.int2bytes(varAttrLenBytes, 0, varAttrParseLen, false, s.isVarMsb(), len);
+                        System.arraycopy(tmpBuff, cnt, tmpBuff, cnt+varAttrParseLen, len);
+                        System.arraycopy(tmpBuff, cnt, varAttrLenBytes, 0, varAttrParseLen);
+                    }
+                    else if (mode == 2) {
+                        len = toBytes(tmpBuff, cnt, s, payload.getData().get(s.getName()));
+                        varLenRec.put(s.getName(), len);
+                        varAttrLenSegs.put(s.getName(), s);
+                    }
+                    else if (mode == 3) {
+                        len = toBytes(tmpBuff, cnt, s, payload.getData().get(s.getName()));
+                        byte[] tail = codeBook.getTail();
+                        System.arraycopy(tmpBuff, cnt+len, tail, 0, tail.length);
+                        break;
+                    }
+                    else {
+                        //code spec error
+                        return null;
+                    }
+                }
+                else {
+                    if (s.isVarAttrLen()) {
+                        len = s.getOffset();
+                        varAttrLenPos.put(s.getName(), cnt);
+                    }
+                    else {
+                        len = toBytes(tmpBuff, cnt+s.getOffset(), s, payload.getData().get(s.getName()));
+                    }
+                }
             }
             else {
-                len = seg.getLen()*seg.getParseLen();
+                //empty attribute
+                if (s.isVarAttrLen()) {
+                    len = s.getOffset();
+                }
+                else {
+                    len = s.getOffset() + s.getLen()*s.getParseLen();
+                }
             }
             cnt += len;
+
         }
-        //3. encode payload
+
+        //fill missed varAttrLen
+        for (String name : varAttrLenPos.keySet()) {
+            int pos = varAttrLenPos.get(name);
+            int len = varLenRec.get(name);
+            AttrSegment seg = varAttrLenSegs.get(name);
+            int parseLen = seg.getVarParseLen();
+            boolean msb = seg.isVarMsb();
+            byte[] bs = new byte[parseLen];
+            ByteParser.int2bytes(bs, 0, parseLen, false, msb, len);
+            System.arraycopy(tmpBuff, pos, bs, 0, parseLen);
+        }
+
         byte[] encoded = new byte[cnt];
         System.arraycopy(tmpBuff, 0, encoded, 0, cnt);
         return encoded;
     }
 
-    //TODO: tobytes
     public int toBytes(byte[] buff, int offset, AttrSegment segment, Svo val) {
         int idx = offset;
         try {
@@ -511,8 +582,8 @@ public class Coder {
                     break;
                 case STRING:
                     String s = val.unpackString();
-                    ByteParser.string2bytes(buff, idx, s);
-                    break;
+                    ByteParser.string2bytes(buff, offset, s);
+                    idx = s.getBytes().length;
                 case STRING_FLOAT:
                     break;
                 case STRING_INT:
