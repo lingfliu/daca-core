@@ -16,23 +16,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class AppConnManager {
+public class AconnManager {
 
     private final static Logger logger = LoggerFactory.getLogger("appconnmgr");
 
-    public interface AppConnEventDispatcher {
+    public interface AconnEventDispatcher {
         FullMessage onUplink(String addr, FullMessage rxMsg, FlowSpec txFlowSpec);
         FullMessage onDownlink(String addr, FullMessage txMsg, FlowSpec flowSpec);
         void onFinish(String addr, Procedure procedure);
         void onTimeout(String addr, Procedure procedure);
         void onStateChanged(String addr, int state);
+        void onCreateAconn(Aconn aconn);
     }
 
     @Setter
-    AppConnEventDispatcher appConnEventDispatcher;
+    AconnEventDispatcher aconnEventDispatcher;
 
-    ConcurrentHashMap<String, AppConn> conns; //<IP, AppConn>
-    AppConnFactory appConnFactory;
+    ConcurrentHashMap<String, Aconn> conns; //<IP, AppConn>
+    AconnFactory aconnFactory;
 
     NioServer server;
 
@@ -40,15 +41,14 @@ public class AppConnManager {
 
     //Rx attrs
     Scheduler rxScheduler = Schedulers.from(Executors.newCachedThreadPool());
-    PublishSubject<Callable> rxPublisher = PublishSubject.create();
+    PublishSubject<Callable> rxPublisher;
 
-    public AppConnManager(int maxConn, CodeBook codeBook, RoutineBook routineBook, QosAdapter qosAdapter) {
+    public AconnManager(int maxConn, CodeBook codeBook, RoutineBook routineBook) {
         this.maxConn = maxConn;
         conns = new ConcurrentHashMap<>();
-        appConnFactory = new AppConnFactory.Builder()
+        aconnFactory = new AconnFactory.Builder()
                 .codeBook(codeBook)
                 .routineBook(routineBook)
-                .qosAdapter(qosAdapter)
                 .build();
 
         rxPublisher = PublishSubject.create();
@@ -60,24 +60,22 @@ public class AppConnManager {
         server.eventListener = new NioServer.EventListener() {
             @Override
             public void onChannelStateChanged(String addr, int state) {
-//                if (state == AppConn.STATE_DISCONNECTED) {
                 logger.info(addr + " changed to" + state);
-//                }
             }
 
             @Override
             public void onChannelConnected(NioChannel channel) {
                 String addr = channel.getAddr();
                 if (!conns.contains(addr))  {
-                    //TODO handling multiple connections (single connection per ip)
                     //create new connections
                     logger.info("channel connected at " + addr);
                     createAppConn(channel);
                 }
                 else {
                     //update exisiting connections
+                    logger.info("duplicate connection, aborting");
+                    channel.close();
                 }
-
 
             }
 
@@ -93,7 +91,7 @@ public class AppConnManager {
 
             @Override
             public void onReceived(String addr, byte[] bytes, int len) {
-                AppConn conn = conns.get(addr);
+                Aconn conn = conns.get(addr);
                 if (conn != null) {
                     conn.feedUplink(bytes);
                 }
@@ -108,7 +106,7 @@ public class AppConnManager {
 
     public void refresh() {
         for (String addr : conns.keySet()) {
-            AppConn conn = conns.get(addr);
+            Aconn conn = conns.get(addr);
             //remove finished, timeout procedures
             conn.refreshProcedures();
 
@@ -123,32 +121,32 @@ public class AppConnManager {
 
     public void createAppConn(NioChannel channel) {
         final String addr = channel.getAddr();
-        AppConn conn = appConnFactory.createAppConn();
+        Aconn conn = aconnFactory.createAppConn();
         conn.setChannel(channel);
         conns.put(addr, conn);
         conn.loadAutostartFlows();
-        conn.setAppConnListener(new AppConn.AppConnListener() {
+        conn.setAppConnListener(new Aconn.AppConnListener() {
             @Override
             public void onFeed(Procedure proc, Flow flow, FlowSpec flowSpec) {
                 if (flowSpec.getDirection() == Flow.DOWNLINK) {
                     proc.rxFlowSubmitter.submit(() -> {
                         FullMessage msg = null;
-                        if (appConnEventDispatcher != null) {
+                        if (aconnEventDispatcher != null) {
                             if (flow.getDirection() == Flow.UPLINK) {
-                                msg = appConnEventDispatcher.onUplink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
+                                msg = aconnEventDispatcher.onUplink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
                             } else {
-                                msg = appConnEventDispatcher.onDownlink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
+                                msg = aconnEventDispatcher.onDownlink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
                             }
                         }
                         return msg;
                     }, flowSpec.getTimeout(), proc, flowSpec);
                 }
                 else {
-                    if (appConnEventDispatcher != null) {
+                    if (aconnEventDispatcher != null) {
                         if (flow.getDirection() == Flow.UPLINK) {
-                            appConnEventDispatcher.onUplink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
+                            aconnEventDispatcher.onUplink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
                         } else {
-                            appConnEventDispatcher.onDownlink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
+                            aconnEventDispatcher.onDownlink(conn.getChannel().getAddr(), flow.getMessage(), flowSpec);
                         }
                     }
                 }
@@ -157,39 +155,41 @@ public class AppConnManager {
 
             @Override
             public void onFinish(Procedure procedure) {
-                if (appConnEventDispatcher != null) {
-                    appConnEventDispatcher.onFinish(conn.getChannel().getAddr(), procedure);
+                if (aconnEventDispatcher != null) {
+                    aconnEventDispatcher.onFinish(conn.getChannel().getAddr(), procedure);
                 }
             }
 
             @Override
             public void onTimeout(Procedure procedure) {
-                if (appConnEventDispatcher != null) {
-                    appConnEventDispatcher.onTimeout(conn.getChannel().getAddr(), procedure);
+                if (aconnEventDispatcher != null) {
+                    aconnEventDispatcher.onTimeout(conn.getChannel().getAddr(), procedure);
                 }
             }
 
             @Override
             public void onStateChanged(int state) {
-                if (state == AppConn.STATE_DISCONNECTED) {
+                if (state == Aconn.STATE_DISCONNECTED) {
                     conns.remove(addr);
                 }
 
-                if (appConnEventDispatcher != null) {
-                    appConnEventDispatcher.onStateChanged(addr, state);
+                if (aconnEventDispatcher != null) {
+                    aconnEventDispatcher.onStateChanged(addr, state);
                 }
             }
         });
-    }
 
-    ExecutorService executorService = Executors.newCachedThreadPool();
+        if (aconnEventDispatcher != null) {
+            aconnEventDispatcher.onCreateAconn(conn);
+        }
+    }
 
     CyclicThread mainTask = new CyclicThread(()-> {
         refresh();
         //clear inactive conns
 
         for (String key : conns.keySet()) {
-            AppConn conn = conns.get(key);
+            Aconn conn = conns.get(key);
             conn.forwardDownlink();
         }
     },
@@ -197,5 +197,9 @@ public class AppConnManager {
 
     public void start() {
         mainTask.start();
+    }
+
+    public void stop() {
+        mainTask.quit();
     }
 }

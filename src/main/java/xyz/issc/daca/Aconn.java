@@ -23,7 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * connectivity state entity to indicate the
  */
 @Data
-public class AppConn {
+public class Aconn {
     Logger log = LoggerFactory.getLogger("appconn");
 
     QosAdapter qosAdapter;
@@ -58,7 +58,14 @@ public class AppConn {
     ConcurrentLinkedQueue<FullMessage> sendMessageQueue;
 
     public void send(FullMessage txMsg) {
-        channel.send(coder.encode(txMsg));
+        try {
+            byte[] encoded = coder.encode(txMsg);
+            if (encoded != null) {
+                channel.send(encoded);
+            }
+        } catch (ByteParser.ByteArrayOverflowException e) {
+            e.printStackTrace();
+        }
     }
 
     Map<String, Procedure> activeProcedures;//<id, pro>
@@ -197,19 +204,15 @@ public class AppConn {
     public void feedUplink(byte[] bytes) {
         coder.put(bytes);
         while (true) {
-            try {
-                FullMessage msg = coder.decode();
-                if (msg == null) {
-                    break;
-                }
-                else {
-                    Flow flow = composeFlow(msg, Flow.UPLINK); //uplink
-                    update(flow);
-                }
-            } catch (ByteParser.ByteArrayOverflowException | Svo.ValueUnpackException e) {
-                e.printStackTrace();
+            FullMessage msg = coder.decode();
+            if (msg == null) {
                 break;
             }
+            else {
+                Flow flow = composeFlow(msg, Flow.UPLINK); //uplink
+                update(flow);
+            }
+
         }
     }
 
@@ -396,7 +399,7 @@ public class AppConn {
                 }
             }
         }
-        if (qosAdapter.qos < 0) {
+        if (qosAdapter.getMetric() < 0) {
             log.info("qos low, closing conn: " + channel.getAddr());
             close();
         }
@@ -433,7 +436,7 @@ public class AppConn {
         }
     }
 
-    public AppConn(CodeBook codeBook, RoutineBook routineBook, QosAdapter qosAdapter) {
+    public Aconn(CodeBook codeBook, RoutineBook routineBook, QosAdapter qosAdapter) {
         this.codeBook = codeBook;
         this.routineBook = routineBook;
         coder = new Coder(codeBook, codeBook.suggestBuffLen());

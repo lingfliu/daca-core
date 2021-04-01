@@ -4,7 +4,7 @@ package xyz.issc.daca;
 import xyz.issc.daca.spec.CodeBook;
 import xyz.issc.daca.spec.RoutineBook;
 
-public class AppConnFactory {
+public class AconnFactory {
     public CodeBook codeBook;
     public RoutineBook routineBook;
     public QosAdapter qosAdapter;
@@ -27,24 +27,24 @@ public class AppConnFactory {
             return this;
         }
 
-        public AppConnFactory build() {
+        public AconnFactory build() {
             if (this.codeBook != null && this.routineBook != null) {
-                return new AppConnFactory(codeBook, routineBook, qosAdapter);
+                return new AconnFactory(codeBook, routineBook, qosAdapter);
             }
             return null;
         }
 
     }
 
-    private AppConnFactory(CodeBook codeBook, RoutineBook routineBook, QosAdapter qosAdapter) {
+    private AconnFactory(CodeBook codeBook, RoutineBook routineBook, QosAdapter qosAdapter) {
         this.codeBook = codeBook;
         this.routineBook = routineBook;
         this.qosAdapter = qosAdapter;
     }
 
-    public AppConn createAppConn() {
-        QosAdapter adapter = new QosAdapter(qosAdapter.qos);
-        return new AppConn(codeBook, routineBook, adapter);
+    public Aconn createAppConn() {
+        QosAdapter adapter = new QosAdapter(qosAdapter.getMetricMax());
+        return new Aconn(codeBook, routineBook, adapter);
     }
 
 }
