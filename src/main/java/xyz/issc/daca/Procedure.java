@@ -50,11 +50,11 @@ public class Procedure {
     String id;
 
     RxFlowSubmitter rxFlowSubmitter;
-    AppConn parent;
+    Aconn parent;
 
     Logger log = LoggerFactory.getLogger("proc");
 
-    public Procedure(Routine routine, AppConn conn) {
+    public Procedure(Routine routine, Aconn conn) {
         this.routine = routine;
         phase = 0;
         groupPhase = 0;
