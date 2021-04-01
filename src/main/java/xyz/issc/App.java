@@ -18,7 +18,6 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -82,26 +81,15 @@ public class App
 
         if (SpecValidator.validate(codeBook, routineBook)) {
 
-            AppConnManager connManager = new AppConnManager(65535, codeBook, routineBook, new QosAdapter(10){
-                @Override
-                public void damage(Procedure proc) {
-                    setQos(getQos()-proc.getQosWeight());
-                }
-
-                @Override
-                public void restore(Procedure proc) {
-                    setQos(getQos()+1);
-                }
-            });
+            AconnManager connManager = new AconnManager(65535, codeBook, routineBook);
 
             SimpleNettyServer socketServer = new SimpleNettyServer.Builder().maxUser(65535).port(9001).build();
             connManager.bind(socketServer);
 
-
             /*
              * bind application services here
              */
-            connManager.setAppConnEventDispatcher(new AppConnManager.AppConnEventDispatcher() {
+            connManager.setAconnEventDispatcher(new AconnManager.AconnEventDispatcher() {
                 @Override
                 public FullMessage onUplink(String addr, FullMessage msg, FlowSpec flowSpec) {
                     logger.info("uplink requires" + flowSpec);
@@ -113,8 +101,9 @@ public class App
                             Svo svo = Svo.pack(Svo.Type.STRING, auth);
                             Map<String, Svo>  values = new HashMap<>();
                             values.put("auth", svo);
+                            values.put("id", msg.getAttrByName("id"));
                             logger.info("client register " + id + " auth:" + auth);
-                            return FullMessage.compose(msg, codeBook.getMetaCode(), codeBook.getCodeByName(flowSpec.getCodeName()), values);
+                            return FullMessage.compose(codeBook.getMetaCode(), codeBook.getCodeByName(flowSpec.getCodeName()), values);
                         } catch (Svo.ValueUnpackException | Svo.ValuePackException e) {
                             e.printStackTrace();
                         }
@@ -134,7 +123,7 @@ public class App
                             Map<String, Svo>  values = new HashMap<>();
                             values.put("auth", svo);
                             logger.info("client register " + id + " auth:" + auth);
-                            return FullMessage.compose(txMsg, codeBook.getMetaCode(), codeBook.getCodeByName(flowSpec.getCodeName()), values);
+                            return FullMessage.compose(codeBook.getMetaCode(), codeBook.getCodeByName(flowSpec.getCodeName()), values);
                         } catch (Svo.ValueUnpackException | Svo.ValuePackException e) {
                             e.printStackTrace();
                         }
@@ -156,6 +145,21 @@ public class App
                 @Override
                 public void onStateChanged(String addr, int state) {
 
+                }
+
+                @Override
+                public void onCreateAconn(Aconn aconn) {
+                    aconn.setQosAdapter(new QosAdapter(10){
+                        @Override
+                        public void damage(Procedure proc) {
+                            setMetric(getMetric()-proc.getQosWeight());
+                        }
+
+                        @Override
+                        public void restore(Procedure proc) {
+                            setMetric(getMetric()+1);
+                        }
+                    });
                 }
             });
 

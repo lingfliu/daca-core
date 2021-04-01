@@ -1,7 +1,11 @@
 package xyz.issc.daca;
 
+
+import lombok.Getter;
+
 public abstract class NioChannel {
-    public abstract String getAddr();
+    @Getter
+    protected String addr;
     public abstract void close();
     public abstract int send(byte[] bytes);
 }

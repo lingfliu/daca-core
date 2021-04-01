@@ -2,6 +2,7 @@ package xyz.issc.daca.netty_server;
 
 import io.netty.channel.Channel;
 import xyz.issc.daca.NioChannel;
+import xyz.issc.daca.utils.StringUtils;
 
 public class NettyChannel extends NioChannel {
 
@@ -9,12 +10,9 @@ public class NettyChannel extends NioChannel {
 
     public NettyChannel(Channel chn) {
         this.chn = chn;
+        this.addr = chn.remoteAddress().toString().split(":")[0];
     }
 
-    @Override
-    public String getAddr() {
-        return chn.remoteAddress().toString();
-    }
 
     @Override
     public void close() {

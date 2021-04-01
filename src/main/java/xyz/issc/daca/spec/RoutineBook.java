@@ -17,8 +17,7 @@ public class RoutineBook {
     //global creds
     HashMap<String, SvoSpec> creds;
     int filterMode = Routine.FILTER_BLOCK;
-    String[] unfiltered; //effective when the mode is block
-    String[] filtered; //effective when the mode is pass
+    String[] filtered;
 
     long timeout; //connection timeout
 

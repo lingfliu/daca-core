@@ -11,7 +11,7 @@ public class Routine {
     public static final int MODE_FILTER = 1; //when at filter mode, the procedure will be retained until specific flows flush the procedure from the conn
 
     public static final int FILTER_NONE = 0; //not as filter
-    public static final int FILTER_BLOCK = 1; //block all other procedures and filter procedures listed in the unfiltered
+    public static final int FILTER_BLOCK = 1; //block all other procedures and filter procedures listed in the filtered
     public static final int FILTER_PASS = 2; //pass all other procedures and filter procedures listed in the filtered
 
     //not used
@@ -35,4 +35,6 @@ public class Routine {
 
     //creds are initialized by the first flow containing the attrs, flows in the routine should meet the creds requirements
     HashMap<String, SvoSpec> creds;
+
+    int qosWeight;
 }

@@ -13,18 +13,19 @@ public class FullMessage {
     String type;
     String name;
 
-    public static FullMessage compose(FullMessage msg, Code metaCode, Code code, Map<String, Svo> attrs) {
-        //TODO attrs in prefix
+    public static FullMessage compose(Code metaCode, Code code, Map<String, Svo> attrs) {
         Message meta = new Message(metaCode);
         Message payload = new Message(code);
+
         List<String> metaAttrNames = metaCode.getAttrNames();
-        List<String> attrNames = code.getAttrNames();
 
         for (String name : metaAttrNames) {
             if (attrs.containsKey(name)) {
                meta.data.put(name, attrs.get(name));
             }
         }
+
+        List<String> attrNames = code.getAttrNames();
         for (String name : attrNames) {
             if (attrs.containsKey(name)) {
                 payload.data.put(name, attrs.get(name));

@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public abstract class NioServer {
-    AppConnManager appConnManager;
+    AconnManager aconnManager;
 
 
     public interface EventListener {

@@ -10,7 +10,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import xyz.issc.daca.AppConn;
+import xyz.issc.daca.Aconn;
 import xyz.issc.daca.NioServer;
 
 public class SimpleNettyServer extends NioServer {
@@ -70,7 +70,8 @@ public class SimpleNettyServer extends NioServer {
                             ch.pipeline().addLast(new NettyDecoder());
                             ch.pipeline().addLast(new NettyByteDispatcher((addr, bytes, len) -> {
                                 if (getEventListener() != null) {
-                                    getEventListener().onReceived(addr, bytes, len);
+
+                                    getEventListener().onReceived(addr.split(":")[0], bytes, len);
                                 }
                             }));
                             ch.pipeline().addLast(new NettyConnectionHandler(new NettyConnectionHandler.ConnectionListener() {
@@ -84,7 +85,7 @@ public class SimpleNettyServer extends NioServer {
                                 @Override
                                 public void onChannelDisconnected(Channel channel) {
                                     if (getEventListener() != null) {
-                                        getEventListener().onChannelStateChanged(channel.remoteAddress().toString(), AppConn.STATE_DISCONNECTED);
+                                        getEventListener().onChannelStateChanged(channel.remoteAddress().toString(), Aconn.STATE_DISCONNECTED);
                                     }
                                 }
                             }));

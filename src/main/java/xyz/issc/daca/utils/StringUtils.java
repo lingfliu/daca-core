@@ -23,4 +23,5 @@ public class StringUtils {
     public static String genSimpleId() {
         return UUID.randomUUID().toString();
     }
+
 }

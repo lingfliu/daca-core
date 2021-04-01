@@ -203,7 +203,7 @@ public class ByteParser {
     public static void string2bytes(byte[] bytes, int offset, String str) throws ByteArrayOverflowException {
         if (bytes.length < offset + str.length() - 1) throw new ByteArrayOverflowException();
         byte[] bs = str.getBytes(StandardCharsets.US_ASCII);
-        System.arraycopy(bytes, offset, bs, 0, bs.length);
+        System.arraycopy(bs, 0, bytes, offset, bs.length);
     }
 
     public static long[] parseStringIntArray(byte[] bytes, int offset, int parseLen, int len) throws ByteArrayOverflowException {

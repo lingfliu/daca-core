@@ -50,14 +50,14 @@
         {
           "name": "id",
           "parse_type": "string",
-          "parse_len": 16,
+          "parse_len": 8,
           "len": 1,
           "msb": true
         },
         {
           "name": "auth",
           "parse_type": "string",
-          "parse_len": 16,
+          "parse_len": 8,
           "len": 1,
           "msb": true
         }

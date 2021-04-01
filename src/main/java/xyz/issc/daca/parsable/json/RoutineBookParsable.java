@@ -63,17 +63,6 @@ public class RoutineBookParsable {
             routineBook.setFiltered(null);
         }
 
-        if (unfiltered != null && unfiltered.size() > 0) {
-            String[] unfilts = new String[unfiltered.size()];
-            for (int m = 0; m < unfiltered.size(); m++) {
-                unfilts[m] = unfiltered.get(m);
-            }
-            routineBook.setUnfiltered(unfilts);
-        }
-        else {
-            routineBook.setUnfiltered(null);
-        }
-
         return routineBook;
     }
 }

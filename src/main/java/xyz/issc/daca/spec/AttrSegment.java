@@ -22,7 +22,7 @@ public class AttrSegment {
     boolean isVarAttrLen = false;
 
     boolean isVariant = false;
-    int varMode; //1: declared in attr meta, 2: freely declared meta or payload attr, 3: determined when tail reached
+    int varMode = 2; //1: declared in attr meta, 2: freely declared meta or payload attr, 3: determined when tail reached
     int varParseLen;
     boolean isVarMsb;
 
