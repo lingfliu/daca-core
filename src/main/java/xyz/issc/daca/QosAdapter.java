@@ -1,28 +1,33 @@
 package xyz.issc.daca;
 
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
 public class QosAdapter {
 
-    int qos;
+    @Getter
+    @Setter
+    int metric = 10;
+
+    @Getter
+    int metricMax;
 
     public QosAdapter() {
-        this.qos = 10;
     }
-    public QosAdapter(int qos){
-        this.qos = qos;
+    public QosAdapter(int max){
+        this.metricMax = max;
     }
 
-    public int evaluate() {
-        return qos; //when < 0, link will be broken
+    public boolean evaluate() {
+        return metric >= 0; //when < 0, link will be broken
     }
 
     public void damage(Procedure proc) {
-        qos--;
+        metric--;
     }
 
     public void restore(Procedure proc) {
-        qos ++;
+        metric = metric >= metricMax ? metricMax : metric+1;
     }
 }
