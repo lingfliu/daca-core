@@ -53,11 +53,10 @@ public class CodeBook {
         for (String k : codes.keySet()) {
             list.add(codes.get(k).name);
         }
-
         return list;
     }
 
-    public int calcPrefixLen() {
+    public int calcMetaLen() {
         int len = 0;
         AttrSegment[] attrSegments = metaCode.getAttrSegments();
         for (int m = 0; m < attrSegments.length; m ++) {
@@ -81,7 +80,7 @@ public class CodeBook {
     }
 
     public int suggestBuffLen() {
-        return calcPrefixLen()*100;
+        return calcMetaLen()*100;
     }
 
 }
