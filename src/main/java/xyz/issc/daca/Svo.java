@@ -7,6 +7,7 @@ import xyz.issc.daca.utils.ArrayHelper;
  * Simple value object
  */
 public class Svo {
+
     public static class ValueUnpackException extends Exception {
     }
     public static class ValuePackException extends Exception {
@@ -224,6 +225,29 @@ public class Svo {
             return valRaw;
         } else {
             throw new ValueUnpackException();
+        }
+    }
+
+    public int getSize() {
+        switch (type) {
+            case RAW:
+                return valRaw.length;
+            case INT:
+                return 1;
+            case INT_ARRAY:
+                return arrayInt.length;
+            case FLOAT:
+                return 1;
+            case FLOAT_ARRAY:
+                return arrayFloat.length;
+            case BOOL:
+                return 1;
+            case BOOL_ARRAY:
+                return arrayBool.length;
+            case STRING:
+                return valString.getBytes().length;
+            default:
+                return 0;
         }
     }
 

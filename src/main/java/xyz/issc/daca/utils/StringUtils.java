@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public class StringUtils {
     public static boolean isEmpty(String str) {
-        return str == null || str.isEmpty() || str.isEmpty();
+        return str == null || str.isEmpty();
     }
 
     public static byte[] hexString2bytes(String hexStr) {
