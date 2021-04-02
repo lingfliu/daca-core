@@ -352,7 +352,7 @@ public class Coder {
                 case STRING_FLOAT:
                     return Svo.pack(Svo.Type.FLOAT, ByteParser.parseStringFloat(buff, offset, attrSeg.getParseLen()));
                 case STRING:
-                    return Svo.pack(Svo.Type.STRING, ByteParser.parseString(buff, offset, attrSeg.getLen()));
+                    return Svo.pack(Svo.Type.STRING, ByteParser.parseString(buff, offset, attrSeg.getParseLen()));
                 default:
                     return null;
             }
@@ -457,27 +457,30 @@ public class Coder {
         for (AttrSegment s : segs){
             int len;
 
-
             if (payload.getData().containsKey(s.getName())) {
                 if (s.isVariant()) {
                     int mode = s.getVarMode();
-                    if (mode == 1) {
-                        len = toBytes(tmpBuff, cnt, s, payload.getData().get(s.getName()));
+                    if (mode == 1) { //length marked at the beginning of the attribute
+                        len = toBytes(tmpBuff, cnt+s.getOffset(), s, payload.getData().get(s.getName()));
                         int varAttrParseLen = s.getVarParseLen();
-                        byte[] varAttrLenBytes = new byte[varAttrParseLen];
-                        ByteParser.int2bytes(varAttrLenBytes, 0, varAttrParseLen, false, s.isVarMsb(), len);
+                        len += varAttrParseLen;
+                        int size = payload.getData().get(s.getName()).getSize();
+                        byte[] varAttrLenBytes = new byte[size];
+
+                        ByteParser.int2bytes(varAttrLenBytes, 0, 1, false, s.isVarMsb(), size);
                         System.arraycopy(tmpBuff, cnt, tmpBuff, cnt+varAttrParseLen, len);
-                        System.arraycopy(tmpBuff, cnt, varAttrLenBytes, 0, varAttrParseLen);
+                        System.arraycopy(varAttrLenBytes, 0, tmpBuff, cnt, varAttrParseLen);
                     }
-                    else if (mode == 2) {
-                        len = toBytes(tmpBuff, cnt, s, payload.getData().get(s.getName()));
+                    else if (mode == 2) { //length marked somewhere else, record the length first
+                        len = toBytes(tmpBuff, cnt+s.getOffset(), s, payload.getData().get(s.getName()));
                         varLenRec.put(s.getName(), len);
                         varAttrLenSegs.put(s.getName(), s);
                     }
-                    else if (mode == 3) {
-                        len = toBytes(tmpBuff, cnt, s, payload.getData().get(s.getName()));
+                    else if (mode == 3) { //length marked by tail
+                        len = toBytes(tmpBuff, cnt+s.getOffset(), s, payload.getData().get(s.getName()));
                         byte[] tail = codeBook.getTail();
                         System.arraycopy(tmpBuff, cnt+len, tail, 0, tail.length);
+                        //the tail also ends the message
                         break;
                     }
                     else {
@@ -487,7 +490,8 @@ public class Coder {
                 }
                 else {
                     if (s.isVarAttrLen()) {
-                        len = s.getOffset();
+                        //record the position for the varAttrLen
+                        len = s.getOffset() + s.getParseLen();
                         varAttrLenPos.put(s.getName(), cnt);
                     }
                     else {
@@ -505,7 +509,6 @@ public class Coder {
                 }
             }
             cnt += len;
-
         }
 
         //fill missed varAttrLen
