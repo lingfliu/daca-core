@@ -48,9 +48,6 @@ connManager.setEventListener(new EventListener() {
     @Override
     public void onFinish(String addr, Procedure proc) {
     }
-    @Override
-    public void onStateChanged(String addr, Procedure proc) {
-    }
 };
 ```
 
@@ -62,7 +59,7 @@ connManager.setEventListener(new StateListener() {
 };
 ```
 
-For the concepts of Procedure, Routine, and other concepts, please read  http://daca.issc.xyz/docs
+For Procedure, Routine, and other concepts, please read http://daca.issc.xyz/docs
 
 
 ## Samples and demos
