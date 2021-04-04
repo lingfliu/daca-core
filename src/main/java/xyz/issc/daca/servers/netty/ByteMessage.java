@@ -1,4 +1,4 @@
-package xyz.issc.daca.netty_server;
+package xyz.issc.daca.servers.netty;
 
 public class ByteMessage {
     byte[] bytes;

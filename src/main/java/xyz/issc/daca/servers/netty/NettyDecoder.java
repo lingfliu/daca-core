@@ -1,4 +1,4 @@
-package xyz.issc.daca.netty_server;
+package xyz.issc.daca.servers.netty;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;

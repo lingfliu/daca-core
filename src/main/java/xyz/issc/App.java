@@ -4,7 +4,7 @@ import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.issc.daca.*;
-import xyz.issc.daca.netty_server.SimpleNettyServer;
+import xyz.issc.daca.servers.netty.SimpleNettyServer;
 import xyz.issc.daca.parsable.json.CodeBookParsable;
 import xyz.issc.daca.parsable.json.RoutineBookParsable;
 import xyz.issc.daca.spec.CodeBook;
